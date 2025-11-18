@@ -1,0 +1,61 @@
+name: Test Contract Flow
+
+on:
+  workflow_dispatch:  # 수동 실행
+  schedule:
+    - cron: '0 2 * * 0'  # 매주 일요일 새벽 2시
+
+jobs:
+  test-contract:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      
+      - name: Generate OpenAPI YAML
+        run: |
+          chmod +x scripts/generate-openapi.sh
+          ./scripts/generate-openapi.sh
+      
+      - name: Validate YAML
+        run: |
+          if [ ! -f api-contracts/openapi.yaml ]; then
+            echo "❌ YAML 파일이 생성되지 않았습니다"
+            exit 1
+          fi
+          
+          # 기본 검증
+          if ! grep -q "openapi:" api-contracts/openapi.yaml; then
+            echo "❌ YAML 파일 형식이 올바르지 않습니다"
+            exit 1
+          fi
+          
+          echo "✅ YAML 파일 검증 성공"
+      
+      - name: Check API endpoints
+        run: |
+          # 엔드포인트 확인
+          ENDPOINTS=$(grep -c "paths:" api-contracts/openapi.yaml || echo "0")
+          if [ "$ENDPOINTS" -eq "0" ]; then
+            echo "⚠️ 엔드포인트가 발견되지 않았습니다"
+          else
+            echo "✅ 엔드포인트 발견됨"
+          fi
+      
+      - name: Upload YAML artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-yaml-test
+          path: api-contracts/
+          retention-days: 7
+
