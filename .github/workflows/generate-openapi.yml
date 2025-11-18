@@ -62,20 +62,39 @@ jobs:
         run: |
           if [ -n "$(git status --porcelain api-contracts/)" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
+            
+            # 변경된 파일 내용 확인
+            git diff api-contracts/openapi.yaml | head -50 || true
           else
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
+      
+      - name: Increment version if changed
+        id: increment-version
+        if: steps.verify-changed-files.outputs.changed == 'true' && github.event_name != 'pull_request'
+        run: |
+          chmod +x scripts/increment-version.sh
+          ./scripts/increment-version.sh
+          
+          # 새 버전을 출력으로 저장
+          NEW_VERSION=$(grep -E '\.version\(".*"\)' src/main/java/com/example/testbeapi/config/SwaggerConfig.java | sed 's/.*\.version("\(.*\)").*/\1/')
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "✅ 버전 증가 완료: $NEW_VERSION"
+          
+          # 버전 업데이트 후 다시 YAML 생성 (새 버전 반영)
+          ./scripts/generate-openapi.sh
       
       - name: Commit and push if changed
         if: steps.verify-changed-files.outputs.changed == 'true' && github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_VERSION: ${{ steps.increment-version.outputs.new_version }}
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
           
           # 변경사항 커밋
-          git add api-contracts/
-          git commit -m "chore: 자동 생성된 OpenAPI YAML 업데이트 [skip ci]" || exit 0
+          git add api-contracts/ src/main/java/com/example/testbeapi/config/SwaggerConfig.java
+          git commit -m "chore: OpenAPI 스펙 업데이트 및 버전 증가 ($NEW_VERSION) [skip ci]" || exit 0
           
           # 푸시 (실패 시 재시도)
           MAX_RETRIES=5
