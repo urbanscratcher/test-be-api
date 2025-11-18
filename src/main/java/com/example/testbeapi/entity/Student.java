@@ -34,5 +34,8 @@ public class Student {
     @Column(name = "student_number", unique = true)
     private String studentNumber;
 
+    @Column(name = "nickname")
+    private String nickname;
+
 }
 
