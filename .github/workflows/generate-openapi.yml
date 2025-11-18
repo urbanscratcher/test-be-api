@@ -37,6 +37,21 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       
+      - name: Sync with remote before generation
+        if: github.event_name != 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          git config --local user.email "urbanscratcher@github.com"
+          git config --local user.name "Joun"
+          
+          # 원격 변경사항 가져오기
+          git fetch origin $BRANCH_NAME || true
+          
+          # 원격과 동기화 (충돌 시 현재 브랜치 유지)
+          git merge origin/$BRANCH_NAME --no-edit || git rebase origin/$BRANCH_NAME || true
+      
       - name: Generate OpenAPI YAML
         run: |
           chmod +x scripts/generate-openapi.sh
@@ -56,45 +71,54 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config --local user.email "urbanscratcher@github.com"
-          git config --local user.name "Joun"
-          
-          # 원격 변경사항 먼저 가져오기
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          git fetch origin $BRANCH_NAME
-          
-          # 원격과 동기화
-          git pull --rebase origin $BRANCH_NAME || git pull --no-edit origin $BRANCH_NAME || true
           
           # 변경사항 커밋
           git add api-contracts/
           git commit -m "chore: 자동 생성된 OpenAPI YAML 업데이트 [skip ci]" || exit 0
           
           # 푸시 (실패 시 재시도)
-          MAX_RETRIES=3
+          MAX_RETRIES=5
           RETRY_COUNT=0
           
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            # 원격 변경사항 다시 확인
+            git fetch origin $BRANCH_NAME || true
+            
+            # 로컬이 원격보다 앞서있는지 확인
+            LOCAL=$(git rev-parse HEAD)
+            REMOTE=$(git rev-parse origin/$BRANCH_NAME 2>/dev/null || echo "")
+            
+            if [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+              # 원격에 새로운 커밋이 있으면 rebase
+              echo "원격에 새로운 변경사항 발견. rebase 중..."
+              git rebase origin/$BRANCH_NAME || {
+                echo "rebase 실패. merge 시도..."
+                git merge origin/$BRANCH_NAME --no-edit || {
+                  echo "merge도 실패. 강제로 재생성된 YAML 사용"
+                  git checkout --ours api-contracts/ || true
+                  git add api-contracts/
+                  git commit -m "chore: 자동 생성된 OpenAPI YAML 업데이트 [skip ci]" || true
+                }
+              }
+            fi
+            
+            # 푸시 시도
             if git push https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git HEAD:$BRANCH_NAME; then
               echo "✅ 푸시 성공"
-              break
+              exit 0
             else
               RETRY_COUNT=$((RETRY_COUNT + 1))
               echo "⚠️ 푸시 실패. 재시도 $RETRY_COUNT/$MAX_RETRIES"
               
               if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                # 원격 변경사항 다시 가져오기
-                git fetch origin $BRANCH_NAME
-                git rebase origin/$BRANCH_NAME || git merge --no-edit origin/$BRANCH_NAME || true
-                sleep 2
+                sleep 3
               fi
             fi
           done
           
-          if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-            echo "❌ 푸시 실패: 최대 재시도 횟수 초과"
-            exit 1
-          fi
+          echo "❌ 푸시 실패: 최대 재시도 횟수 초과"
+          exit 1
       
       - name: Show changes in PR
         if: steps.verify-changed-files.outputs.changed == 'true' && github.event_name == 'pull_request'
