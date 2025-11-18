@@ -37,5 +37,8 @@ public class Student {
     @Column(name = "nickname")
     private String nickname;
 
+    @Column(name = "grade")
+    private Integer grade;
+
 }
 
