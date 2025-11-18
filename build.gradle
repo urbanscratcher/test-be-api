@@ -43,3 +43,36 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
+// OpenAPI YAML 생성 태스크
+task generateOpenApiYaml(type: Exec) {
+    group = 'documentation'
+    description = '서버를 시작하고 OpenAPI YAML을 생성합니다'
+    
+    doFirst {
+        // api-contracts 디렉토리 생성
+        mkdir 'api-contracts'
+    }
+    
+    commandLine 'bash', 'scripts/generate-openapi.sh'
+    
+    doLast {
+        println "✅ OpenAPI YAML이 api-contracts/openapi.yaml에 생성되었습니다."
+    }
+}
+
+// 간단한 YAML 다운로드 태스크 (서버가 이미 실행 중일 때)
+task downloadOpenApiYaml(type: Exec) {
+    group = 'documentation'
+    description = '실행 중인 서버에서 OpenAPI YAML을 다운로드합니다'
+    
+    doFirst {
+        mkdir 'api-contracts'
+    }
+    
+    commandLine 'curl', '-s', 'http://localhost:8080/api-docs.yaml', '-o', 'api-contracts/openapi.yaml'
+    
+    doLast {
+        println "✅ OpenAPI YAML이 다운로드되었습니다."
+    }
+}
+

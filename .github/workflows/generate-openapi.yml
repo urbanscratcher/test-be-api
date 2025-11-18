@@ -1,0 +1,63 @@
+name: Generate OpenAPI YAML
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'src/**'
+      - 'build.gradle'
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:  # 수동 실행 가능
+
+jobs:
+  generate-openapi:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      
+      - name: Generate OpenAPI YAML
+        run: |
+          chmod +x scripts/generate-openapi.sh
+          ./scripts/generate-openapi.sh
+      
+      - name: Check for changes
+        id: verify-changed-files
+        run: |
+          if [ -n "$(git status --porcelain api-contracts/)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Commit and push if changed
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add api-contracts/
+          git commit -m "chore: 자동 생성된 OpenAPI YAML 업데이트 [skip ci]" || exit 0
+          git push
+      
+      - name: Upload OpenAPI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-specs
+          path: api-contracts/
+          retention-days: 30
+

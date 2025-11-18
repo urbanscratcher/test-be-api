@@ -1,0 +1,160 @@
+openapi: 3.0.1
+info:
+  title: Student Management API
+  description: 학생 관리 시스템 API 문서
+  contact:
+    name: API Support
+    email: support@example.com
+  version: 1.0.0
+servers:
+- url: http://localhost:8080
+  description: Generated server url
+tags:
+- name: Student
+  description: 학생 관리 API
+paths:
+  /api/students/{id}:
+    get:
+      tags:
+      - Student
+      summary: 학생 조회
+      description: ID로 특정 학생을 조회합니다
+      operationId: getStudentById
+      parameters:
+      - name: id
+        in: path
+        description: 학생 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+        "404":
+          description: 학생을 찾을 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+    put:
+      tags:
+      - Student
+      summary: 학생 수정
+      description: 기존 학생 정보를 수정합니다
+      operationId: updateStudent
+      parameters:
+      - name: id
+        in: path
+        description: 학생 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Student'
+        required: true
+      responses:
+        "200":
+          description: 수정 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+        "404":
+          description: 학생을 찾을 수 없음
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+        "400":
+          description: 잘못된 요청
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+    delete:
+      tags:
+      - Student
+      summary: 학생 삭제
+      description: ID로 학생을 삭제합니다
+      operationId: deleteStudent
+      parameters:
+      - name: id
+        in: path
+        description: 학생 ID
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "204":
+          description: 삭제 성공
+        "404":
+          description: 학생을 찾을 수 없음
+  /api/students:
+    get:
+      tags:
+      - Student
+      summary: 모든 학생 조회
+      description: 등록된 모든 학생 목록을 조회합니다
+      operationId: getAllStudents
+      responses:
+        "200":
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+    post:
+      tags:
+      - Student
+      summary: 학생 생성
+      description: 새로운 학생을 등록합니다
+      operationId: createStudent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Student'
+        required: true
+      responses:
+        "201":
+          description: 생성 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+        "400":
+          description: 잘못된 요청
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Student'
+components:
+  schemas:
+    Student:
+      required:
+      - age
+      - name
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        age:
+          type: integer
+          format: int32
+        email:
+          type: string
+        studentNumber:
+          type: string
