@@ -14,7 +14,7 @@ public class SwaggerConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("Student Management API")
-                        .version("1.0.0")
+                        .version("1.0.1")
                         .description("학생 관리 시스템 API 문서")
                         .contact(new Contact()
                                 .name("API Support")
